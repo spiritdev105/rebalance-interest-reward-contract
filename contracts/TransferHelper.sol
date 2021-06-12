@@ -11,10 +11,10 @@ import './interfaces/IWETH.sol';
 contract TransferHelper {
 
   // Mainnet
-  // IWETH internal constant WETH = IWETH(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+  IWETH internal constant WETH = IWETH(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
 
   // Kovan
-  IWETH internal constant WETH = IWETH(0xd0A1E359811322d97991E03f863a0C30C2cF029C);
+  // IWETH internal constant WETH = IWETH(0xd0A1E359811322d97991E03f863a0C30C2cF029C);
 
   function _safeTransferFrom(address _token, address _sender, uint _amount) internal virtual {
     bool success = IERC20(_token).transferFrom(_sender, address(this), _amount);

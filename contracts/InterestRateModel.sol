@@ -8,6 +8,8 @@ pragma solidity ^0.8.0;
 import './interfaces/ILendingPair.sol';
 import './interfaces/IERC20.sol';
 
+import './external/Math.sol';
+
 contract InterestRateModel {
 
   // Per block
@@ -28,14 +30,14 @@ contract InterestRateModel {
 
     if (supply == 0 || debt == 0) { return MIN_RATE; }
 
-    uint utilization = _max(debt * 100e18 / supply, 100e18);
+    uint utilization = Math.min(debt * 100e18 / supply, 100e18);
 
     if (utilization < TARGET_UTILIZATION) {
       uint rate = LOW_RATE * utilization / 100e18;
       return (rate < MIN_RATE) ? MIN_RATE : rate;
     } else {
       utilization = 100e18 * ( debt - (supply * TARGET_UTILIZATION / 100e18) ) / (supply * (100e18 - TARGET_UTILIZATION) / 100e18);
-      utilization = _max(utilization, 100e18);
+      utilization = Math.min(utilization, 100e18);
       return LOW_RATE + (HIGH_RATE - LOW_RATE) * utilization / 100e18;
     }
   }
@@ -46,15 +48,11 @@ contract InterestRateModel {
 
     if (supply == 0 || debt == 0) { return 0; }
 
-    return _max(debt * 100e18 / supply, 100e18);
+    return Math.min(debt * 100e18 / supply, 100e18);
   }
 
   // InterestRateModel can later be replaced for more granular fees per _lendingPair
   function systemRate(ILendingPair _pair, address _token) public pure returns(uint) {
     return SYSTEM_RATE;
-  }
-
-  function _max(uint _valueA, uint _valueB) internal pure returns(uint) {
-    return _valueA > _valueB ? _valueB : _valueA;
   }
 }

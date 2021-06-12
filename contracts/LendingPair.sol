@@ -12,6 +12,7 @@ import './interfaces/IController.sol';
 import './interfaces/IRewardDistribution.sol';
 import './interfaces/IInterestRateModel.sol';
 
+import './external/Math.sol';
 import './external/Ownable.sol';
 import './external/Address.sol';
 import './external/Clones.sol';
@@ -236,6 +237,7 @@ contract LendingPair is TransferHelper {
   }
 
   // Sell collateral to reduce debt and increase accountHealth
+  // Set _repayAmount to uint(-1) to repay all debt, inc. pending interest
   function liquidateAccount(
     address _account,
     address _repayToken,
@@ -243,18 +245,38 @@ contract LendingPair is TransferHelper {
     uint    _minSupplyOutput
   ) external {
 
+    // Input validation and adjustments
+
     _validateToken(_repayToken);
+    address supplyToken = _repayToken == tokenA ? tokenB : tokenA;
+    _repayAmount = Math.min(_repayAmount, debtOf[_repayToken][_account]);
+
+    // Check account is underwater after interest
 
     _accrueAccountInterest(_account);
     _accrueAccountInterest(feeRecipient());
-
     uint health = accountHealth(_account);
     require(health < controller.LIQ_MIN_HEALTH(), "LendingPair: account health > LIQ_MIN_HEALTH");
 
-    address supplyToken = _repayToken == tokenA ? tokenB : tokenA;
-    uint supplyOutput = _liquidateToken(_account, _repayToken, supplyToken, _repayAmount);
+    // Calculate balance adjustments
+
+    uint supplyDebt   = _convertTokenValues(_repayToken, supplyToken, _repayAmount);
+    uint callerFee    = supplyDebt * controller.liqFeeCaller(_repayToken) / 100e18;
+    uint systemFee    = supplyDebt * controller.liqFeeSystem(_repayToken) / 100e18;
+    uint supplyBurn   = supplyDebt + callerFee + systemFee;
+    uint supplyOutput = supplyDebt + callerFee;
 
     require(supplyOutput >= _minSupplyOutput, "LendingPair: supplyOutput >= _minSupplyOutput");
+
+    // Adjust balances
+
+    _burnSupply(supplyToken, _account, supplyBurn);
+    _mintSupply(supplyToken, feeRecipient(), systemFee);
+    _burnDebt(_repayToken, _account, _repayAmount);
+
+    // Settle token transfers
+
+    _safeTransferFrom(_repayToken, msg.sender, _repayAmount);
     _safeTransfer(IERC20(supplyToken), msg.sender, supplyOutput);
 
     emit Liquidation(_account, _repayToken, supplyToken, _repayAmount, supplyOutput);
@@ -353,27 +375,6 @@ contract LendingPair is TransferHelper {
   function _burnDebt(address _token, address _account, uint _amount) internal {
     debtOf[_token][_account] -= _amount;
     totalDebt[_token] -= _amount;
-  }
-
-  function _liquidateToken(
-    address _account,
-    address _repayToken,
-    address _supplyToken,
-    uint    _repayAmount
-  ) internal returns(uint) {
-
-    _safeTransferFrom(_repayToken, msg.sender, _repayAmount);
-
-    uint supplyDebt = _convertTokenValues(_repayToken, _supplyToken, _repayAmount);
-    uint callerFee  = supplyDebt * controller.liqFeeCaller(_repayToken) / 100e18;
-    uint systemFee  = supplyDebt * controller.liqFeeSystem(_repayToken) / 100e18;
-    uint supplyBurn = supplyDebt + callerFee + systemFee;
-
-    _burnSupply(_supplyToken, _account, supplyBurn);
-    _mintSupply(_supplyToken, feeRecipient(), systemFee);
-    _burnDebt(_repayToken, _account, _repayAmount);
-
-    return supplyDebt + callerFee;
   }
 
   function _accrueAccountInterest(address _account) internal {
