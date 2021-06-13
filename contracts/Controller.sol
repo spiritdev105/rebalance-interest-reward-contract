@@ -9,7 +9,8 @@ import './external/Ownable.sol';
 
 contract Controller is Ownable {
 
-  uint public constant LIQ_MIN_HEALTH = 15e17; // 1.5
+  uint public  constant LIQ_MIN_HEALTH = 1e18;
+  uint private constant MAX_COL_FACTOR = 90e18;
 
   IInterestRateModel  public interestRateModel;
   IPriceOracle        public priceOracle;
@@ -59,7 +60,7 @@ contract Controller is Ownable {
     uint    _liqFeeCaller
   ) public onlyOwner {
     // Never more than a total of 50%
-    require(_liqFeeCaller + _liqFeeSystem <= 50e18, "PairFactory: fees too high");
+    require(_liqFeeCaller + _liqFeeSystem <= 50e18, "Controller: fees too high");
 
     liqFeeSystemToken[_token] = _liqFeeSystem;
     liqFeeCallerToken[_token] = _liqFeeCaller;
@@ -72,7 +73,7 @@ contract Controller is Ownable {
     uint    _liqFeeCaller
   ) public onlyOwner {
     // Never more than a total of 50%
-    require(_liqFeeCaller + _liqFeeSystem <= 50e18, "PairFactory: fees too high");
+    require(_liqFeeCaller + _liqFeeSystem <= 50e18, "Controller: fees too high");
 
     liqFeeSystemDefault = _liqFeeSystem;
     liqFeeCallerDefault = _liqFeeCaller;
@@ -106,6 +107,7 @@ contract Controller is Ownable {
   }
 
   function setColFactor(address _token, uint _value) public onlyOwner {
+    require(_value <= MAX_COL_FACTOR, "Controller: _value <= MAX_COL_FACTOR");
     colFactor[_token] = _value;
     emit NewColFactor(_token, _value);
   }

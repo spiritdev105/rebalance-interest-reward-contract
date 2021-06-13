@@ -249,7 +249,6 @@ contract LendingPair is TransferHelper {
 
     _validateToken(_repayToken);
     address supplyToken = _repayToken == tokenA ? tokenB : tokenA;
-    _repayAmount = Math.min(_repayAmount, debtOf[_repayToken][_account]);
 
     // Check account is underwater after interest
 
@@ -259,6 +258,8 @@ contract LendingPair is TransferHelper {
     require(health < controller.LIQ_MIN_HEALTH(), "LendingPair: account health > LIQ_MIN_HEALTH");
 
     // Calculate balance adjustments
+
+    _repayAmount = Math.min(_repayAmount, debtOf[_repayToken][_account]);
 
     uint supplyDebt   = _convertTokenValues(_repayToken, supplyToken, _repayAmount);
     uint callerFee    = supplyDebt * controller.liqFeeCaller(_repayToken) / 100e18;
