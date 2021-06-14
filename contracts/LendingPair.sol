@@ -433,6 +433,7 @@ contract LendingPair is TransferHelper {
     _mintDebt(_token, msg.sender, _amount);
     _snapshotAccount(msg.sender);
 
+    _checkBorrowLimits(_token, msg.sender);
     checkAccountHealth(msg.sender);
 
     emit Borrow(_token, _amount);
@@ -449,12 +450,12 @@ contract LendingPair is TransferHelper {
 
     _checkOracleSupport(tokenA);
     _checkOracleSupport(tokenB);
-    _checkDepositLimit(_token, _amount);
 
     require(debtOf[_token][_account] == 0, "LendingPair: cannot deposit borrowed token");
 
     _mintSupply(_token, _account, _amount);
     _snapshotAccount(_account);
+    _checkDepositLimit(_token);
 
     emit Deposit(_account, _token, _amount);
   }
@@ -557,13 +558,26 @@ contract LendingPair is TransferHelper {
     require(IERC20(_token).balanceOf(address(this)) >= MIN_RESERVE, "LendingPair: below MIN_RESERVE");
   }
 
-  function _checkDepositLimit(address _token, uint _amount) internal view {
+  function _checkDepositLimit(address _token) internal view {
     require(controller.depositsEnabled(), "LendingPair: deposits disabled");
 
     uint depositLimit = controller.depositLimit(address(this), _token);
 
     if (depositLimit > 0) {
-      require((lpToken[_token].totalSupply() + _amount) <= depositLimit, "LendingPair: deposit limit reached");
+      require((lpToken[_token].totalSupply()) <= depositLimit, "LendingPair: deposit limit reached");
+    }
+  }
+
+  function _checkBorrowLimits(address _token, address _account) internal view {
+    require(controller.borrowingEnabled(), "LendingPair: borrowing disabled");
+
+    uint accountBorrowUSD = debtOf[_token][_account] * controller.tokenPrice(_token) / 1e18;
+    require(accountBorrowUSD >= controller.minBorrowUSD(), "LendingPair: borrow amount below minimum");
+
+    uint borrowLimit = controller.borrowLimit(address(this), _token);
+
+    if (borrowLimit > 0) {
+      require(totalDebt[_token] <= borrowLimit, "LendingPair: borrow limit reached");
     }
   }
 

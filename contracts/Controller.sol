@@ -10,20 +10,23 @@ import './external/Ownable.sol';
 contract Controller is Ownable {
 
   uint public  constant LIQ_MIN_HEALTH = 1e18;
-  uint private constant MAX_COL_FACTOR = 90e18;
+  uint private constant MAX_COL_FACTOR = 99e18;
 
   IInterestRateModel  public interestRateModel;
   IPriceOracle        public priceOracle;
   IRewardDistribution public rewardDistribution;
 
   bool public depositsEnabled;
+  bool public borrowingEnabled;
   uint public liqFeeCallerDefault;
   uint public liqFeeSystemDefault;
+  uint public minBorrowUSD;
 
   mapping(address => mapping(address => uint)) public depositLimit;
+  mapping(address => mapping(address => uint)) public borrowLimit;
   mapping(address => uint) public liqFeeCallerToken; // 1e18  = 1%
   mapping(address => uint) public liqFeeSystemToken; // 1e18  = 1%
-  mapping(address => uint) public colFactor; // 90e18 = 90%
+  mapping(address => uint) public colFactor; // 99e18 = 99%
 
   address public feeRecipient;
 
@@ -33,7 +36,9 @@ contract Controller is Ownable {
   event NewRewardDistribution(address rewardDistribution);
   event NewColFactor(address token, uint value);
   event NewDepositLimit(address pair, address token, uint value);
+  event NewBorrowLimit(address pair, address token, uint value);
   event DepositsEnabled(bool value);
+  event BorrowingEnabled(bool value);
   event NewLiqParamsToken(address token, uint liqFeeSystem, uint liqFeeCaller);
   event NewLiqParamsDefault(uint liqFeeSystem, uint liqFeeCaller);
 
@@ -47,6 +52,7 @@ contract Controller is Ownable {
     liqFeeSystemDefault = _liqFeeSystemDefault;
     liqFeeCallerDefault = _liqFeeCallerDefault;
     depositsEnabled = true;
+    borrowingEnabled = true;
   }
 
   function setFeeRecipient(address _feeRecipient) public onlyOwner {
@@ -101,9 +107,23 @@ contract Controller is Ownable {
     emit DepositsEnabled(_value);
   }
 
+  function setBorrowingEnabled(bool _value) public onlyOwner {
+    borrowingEnabled = _value;
+    emit BorrowingEnabled(_value);
+  }
+
   function setDepositLimit(address _pair, address _token, uint _value) public onlyOwner {
     depositLimit[_pair][_token] = _value;
     emit NewDepositLimit(_pair, _token, _value);
+  }
+
+  function setBorrowLimit(address _pair, address _token, uint _value) public onlyOwner {
+    borrowLimit[_pair][_token] = _value;
+    emit NewBorrowLimit(_pair, _token, _value);
+  }
+
+  function setMinBorrowUSD(uint _value) public onlyOwner {
+    minBorrowUSD = _value;
   }
 
   function setColFactor(address _token, uint _value) public onlyOwner {

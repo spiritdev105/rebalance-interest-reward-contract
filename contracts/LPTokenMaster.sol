@@ -111,14 +111,4 @@ contract LPTokenMaster is Ownable {
     allowance[_owner][_spender] = _amount;
     emit Approval(_owner, _spender, _amount);
   }
-
-  function _concat(
-    string memory a,
-    string memory b,
-    string memory c,
-    string memory d,
-    string memory e
-  ) internal pure returns(string memory) {
-    return string(abi.encodePacked(a, b, c, e, d));
-  }
 }
