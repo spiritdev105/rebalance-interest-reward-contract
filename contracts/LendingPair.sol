@@ -404,9 +404,12 @@ contract LendingPair is TransferHelper {
 
   function _accrueAccount(address _account) internal {
     accrue();
-    _accrueAccountInterest(feeRecipient());
     _accrueAccountInterest(_account);
-    _distributeReward(_account);
+
+    if (_account != feeRecipient()) {
+      _accrueAccountInterest(feeRecipient());
+      _distributeReward(_account);
+    }
   }
 
   function _accrueAccountDebt(address _token, address _account) internal {
@@ -463,7 +466,10 @@ contract LendingPair is TransferHelper {
   function _snapshotAccount(address _account) internal {
     IRewardDistribution rewardDistribution = controller.rewardDistribution();
 
-    if (address(rewardDistribution) != address(0)) {
+    if (
+      address(rewardDistribution) != address(0) &&
+      _account != feeRecipient()
+    ) {
       rewardDistribution.snapshotAccount(_account, tokenA, true);
       rewardDistribution.snapshotAccount(_account, tokenA, false);
       rewardDistribution.snapshotAccount(_account, tokenB, true);
