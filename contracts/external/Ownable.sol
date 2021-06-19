@@ -22,12 +22,12 @@ contract Ownable {
     return msg.sender == owner;
   }
 
-  function renounceOwnership() public onlyOwner {
+  function renounceOwnership() external onlyOwner {
     emit OwnershipTransferred(owner, address(0));
     owner = address(0);
   }
 
-  function transferOwnership(address newOwner) public onlyOwner {
+  function transferOwnership(address newOwner) external onlyOwner {
     _transferOwnership(newOwner);
   }
 

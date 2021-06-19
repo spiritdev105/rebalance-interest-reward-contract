@@ -64,7 +64,7 @@ contract MasterPool is Ownable {
   }
 
   // Add a new lp to the pool. Can only be called by the owner.
-  function add(address _lpToken, uint _allocPoints, bool _withUpdate) public onlyOwner {
+  function add(address _lpToken, uint _allocPoints, bool _withUpdate) external onlyOwner {
 
     require(pidByToken[_lpToken].added == false, "MasterPool: already added");
 
@@ -90,7 +90,7 @@ contract MasterPool is Ownable {
   }
 
   // Update the given pool's RewardToken allocation point. Can only be called by the owner.
-  function set(uint _pid, uint _allocPoints, bool _withUpdate) public onlyOwner {
+  function set(uint _pid, uint _allocPoints, bool _withUpdate) external onlyOwner {
 
     if (_withUpdate) {
       massUpdatePools();
@@ -144,7 +144,7 @@ contract MasterPool is Ownable {
     pool.lastRewardBlock = block.number;
   }
 
-  function deposit(uint _pid, uint _amount) public {
+  function deposit(uint _pid, uint _amount) external {
     PoolInfo storage pool = poolInfo[_pid];
     UserInfo storage user = userInfo[_pid][msg.sender];
     updatePool(_pid);
@@ -160,7 +160,7 @@ contract MasterPool is Ownable {
     emit Deposit(msg.sender, _pid, _amount);
   }
 
-  function withdraw(uint _pid, uint _amount) public {
+  function withdraw(uint _pid, uint _amount) external {
     PoolInfo storage pool = poolInfo[_pid];
     UserInfo storage user = userInfo[_pid][msg.sender];
     require(user.amount >= _amount, "MasterPool: user.amount >= _amount");
@@ -173,7 +173,7 @@ contract MasterPool is Ownable {
     emit Withdraw(msg.sender, _pid, _amount);
   }
 
-  function emergencyWithdraw(uint _pid) public {
+  function emergencyWithdraw(uint _pid) external {
     PoolInfo storage pool = poolInfo[_pid];
     UserInfo storage user = userInfo[_pid][msg.sender];
     pool.lpToken.transfer(address(msg.sender), user.amount);
@@ -183,7 +183,7 @@ contract MasterPool is Ownable {
   }
 
   // Allows to migrate rewards to a new staking contract.
-  function migrateRewards(address _recipient, uint _amount) public onlyOwner {
+  function migrateRewards(address _recipient, uint _amount) external onlyOwner {
     rewardToken.transfer(_recipient, _amount);
   }
 

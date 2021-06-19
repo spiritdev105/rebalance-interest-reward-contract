@@ -18,23 +18,23 @@ contract OracleAggregator is Ownable {
     uniOracle  = _uniOracle;
   }
 
-  function setLinkOracle(IPriceOracle _value) public onlyOwner {
+  function setLinkOracle(IPriceOracle _value) external onlyOwner {
     linkOracle = _value;
     emit LinkOracleUpdated(address(_value));
   }
 
-  function setUniOracle(IPriceOracle _value) public onlyOwner {
+  function setUniOracle(IPriceOracle _value) external onlyOwner {
     uniOracle = _value;
     emit UniOracleUpdated(address(_value));
   }
 
-  function tokenPrice(address _token) public view returns(uint) {
+  function tokenPrice(address _token) external view returns(uint) {
     if (linkOracle.tokenSupported(_token)) { return linkOracle.tokenPrice(_token); }
     if (uniOracle.tokenSupported(_token)) { return uniOracle.tokenPrice(_token); }
     revert("OracleAggregator: token not supported");
   }
 
-  function tokenSupported(address _token) public view returns(bool) {
+  function tokenSupported(address _token) external view returns(bool) {
     return linkOracle.tokenSupported(_token) || uniOracle.tokenSupported(_token);
   }
 }

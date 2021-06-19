@@ -5,12 +5,16 @@ pragma solidity ^0.8.0;
 import './interfaces/IInterestRateModel.sol';
 import './interfaces/IRewardDistribution.sol';
 import './interfaces/IPriceOracle.sol';
+import './external/Address.sol';
 import './external/Ownable.sol';
 
 contract Controller is Ownable {
 
+  using Address for address;
+
   uint public  constant LIQ_MIN_HEALTH = 1e18;
   uint private constant MAX_COL_FACTOR = 99e18;
+  uint private constant MAX_LIQ_FEES   = 50e18;
 
   IInterestRateModel  public interestRateModel;
   IPriceOracle        public priceOracle;
@@ -43,30 +47,32 @@ contract Controller is Ownable {
   event NewLiqParamsDefault(uint liqFeeSystem, uint liqFeeCaller);
 
   constructor(
-    IInterestRateModel _interestRateModel,
+    address _interestRateModel,
     uint _liqFeeSystemDefault,
     uint _liqFeeCallerDefault
   ) {
-    feeRecipient = msg.sender;
-    interestRateModel = _interestRateModel;
+    _requireContract(_interestRateModel);
+
+    interestRateModel = IInterestRateModel(_interestRateModel);
     liqFeeSystemDefault = _liqFeeSystemDefault;
     liqFeeCallerDefault = _liqFeeCallerDefault;
     depositsEnabled = true;
     borrowingEnabled = true;
   }
 
-  function setFeeRecipient(address _feeRecipient) public onlyOwner {
-    feeRecipient = _feeRecipient;
-    emit NewFeeRecipient(_feeRecipient);
+  function setFeeRecipient(address _value) external onlyOwner {
+    _requireContract(_value);
+    feeRecipient = _value;
+    emit NewFeeRecipient(_value);
   }
 
   function setLiqParamsToken(
     address _token,
     uint    _liqFeeSystem,
     uint    _liqFeeCaller
-  ) public onlyOwner {
-    // Never more than a total of 50%
-    require(_liqFeeCaller + _liqFeeSystem <= 50e18, "Controller: fees too high");
+  ) external onlyOwner {
+    require(_liqFeeCaller + _liqFeeSystem <= MAX_LIQ_FEES, "Controller: fees too high");
+    _requireContract(_token);
 
     liqFeeSystemToken[_token] = _liqFeeSystem;
     liqFeeCallerToken[_token] = _liqFeeCaller;
@@ -77,9 +83,8 @@ contract Controller is Ownable {
   function setLiqParamsDefault(
     uint    _liqFeeSystem,
     uint    _liqFeeCaller
-  ) public onlyOwner {
-    // Never more than a total of 50%
-    require(_liqFeeCaller + _liqFeeSystem <= 50e18, "Controller: fees too high");
+  ) external onlyOwner {
+    require(_liqFeeCaller + _liqFeeSystem <= MAX_LIQ_FEES, "Controller: fees too high");
 
     liqFeeSystemDefault = _liqFeeSystem;
     liqFeeCallerDefault = _liqFeeCaller;
@@ -87,53 +92,57 @@ contract Controller is Ownable {
     emit NewLiqParamsDefault(_liqFeeSystem, _liqFeeCaller);
   }
 
-  function setInterestRateModel(IInterestRateModel _value) public onlyOwner {
-    interestRateModel = _value;
+  function setInterestRateModel(address _value) external onlyOwner {
+    _requireContract(_value);
+    interestRateModel = IInterestRateModel(_value);
     emit NewInterestRateModel(address(_value));
   }
 
-  function setPriceOracle(IPriceOracle _oracle) public onlyOwner {
-    priceOracle = _oracle;
-    emit NewPriceOracle(address(_oracle));
+  function setPriceOracle(address _value) external onlyOwner {
+    _requireContract(_value);
+    priceOracle = IPriceOracle(_value);
+    emit NewPriceOracle(address(_value));
   }
 
-  function setRewardDistribution(IRewardDistribution _value) public onlyOwner {
-    rewardDistribution = _value;
+  function setRewardDistribution(address _value) external onlyOwner {
+    _requireContract(_value);
+    rewardDistribution = IRewardDistribution(_value);
     emit NewRewardDistribution(address(_value));
   }
 
-  function setDepositsEnabled(bool _value) public onlyOwner {
+  function setDepositsEnabled(bool _value) external onlyOwner {
     depositsEnabled = _value;
     emit DepositsEnabled(_value);
   }
 
-  function setBorrowingEnabled(bool _value) public onlyOwner {
+  function setBorrowingEnabled(bool _value) external onlyOwner {
     borrowingEnabled = _value;
     emit BorrowingEnabled(_value);
   }
 
-  function setDepositLimit(address _pair, address _token, uint _value) public onlyOwner {
+  function setDepositLimit(address _pair, address _token, uint _value) external onlyOwner {
+    _requireContract(_pair);
+    _requireContract(_token);
     depositLimit[_pair][_token] = _value;
     emit NewDepositLimit(_pair, _token, _value);
   }
 
-  function setBorrowLimit(address _pair, address _token, uint _value) public onlyOwner {
+  function setBorrowLimit(address _pair, address _token, uint _value) external onlyOwner {
+    _requireContract(_pair);
+    _requireContract(_token);
     borrowLimit[_pair][_token] = _value;
     emit NewBorrowLimit(_pair, _token, _value);
   }
 
-  function setMinBorrowUSD(uint _value) public onlyOwner {
+  function setMinBorrowUSD(uint _value) external onlyOwner {
     minBorrowUSD = _value;
   }
 
-  function setColFactor(address _token, uint _value) public onlyOwner {
+  function setColFactor(address _token, uint _value) external onlyOwner {
     require(_value <= MAX_COL_FACTOR, "Controller: _value <= MAX_COL_FACTOR");
+    _requireContract(_token);
     colFactor[_token] = _value;
     emit NewColFactor(_token, _value);
-  }
-
-  function liqFeesTotal(address _token) public view returns(uint) {
-    return liqFeeSystem(_token) + liqFeeCaller(_token);
   }
 
   function liqFeeSystem(address _token) public view returns(uint) {
@@ -144,11 +153,19 @@ contract Controller is Ownable {
     return liqFeeCallerToken[_token] > 0 ? liqFeeCallerToken[_token] : liqFeeCallerDefault;
   }
 
-  function tokenPrice(address _token) public view returns(uint) {
+  function liqFeesTotal(address _token) external view returns(uint) {
+    return liqFeeSystem(_token) + liqFeeCaller(_token);
+  }
+
+  function tokenPrice(address _token) external view returns(uint) {
     return priceOracle.tokenPrice(_token);
   }
 
-  function tokenSupported(address _token) public view returns(bool) {
+  function tokenSupported(address _token) external view returns(bool) {
     return priceOracle.tokenSupported(_token);
+  }
+
+  function _requireContract(address _value) internal view {
+    require(_value.isContract(), "Controller: must be a contract");
   }
 }

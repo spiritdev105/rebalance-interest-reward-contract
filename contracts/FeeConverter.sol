@@ -46,7 +46,7 @@ contract FeeConverter is Ownable {
     ILendingPair     _pair,
     address[] memory _path,
     uint             _supplyTokenAmount
-  ) public {
+  ) external {
 
     _validatePath(_path);
     require(_pair.controller() == controller, "FeeConverter: invalid pair");
@@ -71,19 +71,19 @@ contract FeeConverter is Ownable {
     emit FeeDistribution(wildBalance - callerIncentive);
   }
 
-  function setStakingRewards(address _value) onlyOwner public {
+  function setStakingRewards(address _value) external onlyOwner {
     stakingPool = _value;
   }
 
-  function setController(IController _value) onlyOwner public {
+  function setController(IController _value) external onlyOwner {
     controller = _value;
   }
 
-  function setCallIncentive(uint _value) onlyOwner public {
+  function setCallIncentive(uint _value) external onlyOwner {
     callIncentive = _value;
   }
 
-  function permitToken(address _token, bool _value) onlyOwner public {
+  function permitToken(address _token, bool _value) external onlyOwner {
     permittedTokens[_token] = _value;
   }
 

@@ -16,7 +16,7 @@ contract AutoStaking is ERC20("xWILD", "xWILD", 18) {
     wild = _wild;
   }
 
-  function deposit(uint _wildAmount) public {
+  function deposit(uint _wildAmount) external {
     uint poolWILD = wild.balanceOf(address(this));
     uint shareAmount;
 
@@ -32,7 +32,7 @@ contract AutoStaking is ERC20("xWILD", "xWILD", 18) {
     emit Deposit(_wildAmount, shareAmount);
   }
 
-  function withdraw(uint _share) public {
+  function withdraw(uint _share) external {
     uint wildAmount = _share * wild.balanceOf(address(this)) / totalSupply;
     _burn(msg.sender, _share);
     wild.transfer(msg.sender, wildAmount);

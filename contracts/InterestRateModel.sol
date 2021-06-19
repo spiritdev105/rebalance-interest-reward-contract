@@ -20,7 +20,7 @@ contract InterestRateModel {
   uint public constant TARGET_UTILIZATION = 80e18; // 80%
   uint public constant SYSTEM_RATE        = 50e18; // share of fees earned by the system
 
-  function supplyRatePerBlock(ILendingPair _pair, address _token) public view returns(uint) {
+  function supplyRatePerBlock(ILendingPair _pair, address _token) external view returns(uint) {
     return borrowRatePerBlock(_pair, _token) * (100e18 - SYSTEM_RATE) / 100e18;
   }
 
@@ -42,7 +42,7 @@ contract InterestRateModel {
     }
   }
 
-  function utilizationRate(ILendingPair _pair, address _token) public view returns(uint) {
+  function utilizationRate(ILendingPair _pair, address _token) external view returns(uint) {
     uint debt = _pair.totalDebt(_token);
     uint supply = IERC20(_pair.lpToken(_token)).totalSupply();
 
@@ -52,7 +52,7 @@ contract InterestRateModel {
   }
 
   // InterestRateModel can later be replaced for more granular fees per _lendingPair
-  function systemRate(ILendingPair _pair, address _token) public pure returns(uint) {
+  function systemRate(ILendingPair _pair, address _token) external pure returns(uint) {
     return SYSTEM_RATE;
   }
 }

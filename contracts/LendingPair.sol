@@ -59,7 +59,7 @@ contract LendingPair is TransferHelper {
     address _controller,
     IERC20 _tokenA,
     IERC20 _tokenB
-  ) public {
+  ) external {
     require(address(tokenA) == address(0), "LendingPair: already initialized");
     require(address(_tokenA) != address(0) && address(_tokenB) != address(0), "LendingPair: cannot be ZERO address");
 

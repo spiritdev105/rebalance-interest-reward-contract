@@ -45,7 +45,7 @@ contract UniswapV3Oracle is Ownable {
     address _token,
     address _pairToken,
     uint24  _poolFee
-  ) public onlyOwner {
+  ) external onlyOwner {
 
     _validatePool(_token, _pairToken, _poolFee);
 
@@ -57,24 +57,24 @@ contract UniswapV3Oracle is Ownable {
     emit PoolAdded(_token);
   }
 
-  function removePool(address _token) public onlyOwner {
+  function removePool(address _token) external onlyOwner {
     pools[_token] = Pool(address(0), 0);
     emit PoolRemoved(_token);
   }
 
-  function setUniPriceConverter(IUniswapPriceConverter _value) public onlyOwner {
+  function setUniPriceConverter(IUniswapPriceConverter _value) external onlyOwner {
     uniPriceConverter = _value;
   }
 
-  function setTwapPeriod(uint32 _value) public onlyOwner {
+  function setTwapPeriod(uint32 _value) external onlyOwner {
     twapPeriod = _value;
   }
 
-  function setMinObservations(uint _value) public onlyOwner {
+  function setMinObservations(uint _value) external onlyOwner {
     minObservations = _value;
   }
 
-  function tokenPrice(address _token) public view returns(uint) {
+  function tokenPrice(address _token) external view returns(uint) {
     require(pools[_token].pairToken != address(0), "UniswapV3Oracle: token not supported");
     _validatePool(_token, pools[_token].pairToken, pools[_token].poolFee);
 
@@ -102,7 +102,7 @@ contract UniswapV3Oracle is Ownable {
     return observationSlots >= minObservations;
   }
 
-  function tokenSupported(address _token) public view returns(bool) {
+  function tokenSupported(address _token) external view returns(bool) {
     return pools[_token].pairToken != address(0);
   }
 

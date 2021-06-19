@@ -21,14 +21,14 @@ contract FeeRecipient is Ownable {
   function convert(
     ILendingPair _pair,
     address[] memory _path
-  ) public {
+  ) external {
     IERC20 lpToken = IERC20(_pair.lpToken(_path[0]));
     uint supplyTokenAmount = lpToken.balanceOf(address(this));
     lpToken.transfer(address(feeConverter), supplyTokenAmount);
     feeConverter.convert(msg.sender, _pair, _path, supplyTokenAmount);
   }
 
-  function setFeeConverter(IFeeConverter _value) onlyOwner public {
+  function setFeeConverter(IFeeConverter _value) external onlyOwner {
     feeConverter = _value;
   }
 }

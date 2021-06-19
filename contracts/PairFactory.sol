@@ -40,7 +40,7 @@ contract PairFactory is Ownable, TransferHelper {
   function createPair(
     address _tokenA,
     address _tokenB
-  ) public returns(address) {
+  ) external returns(address) {
 
     require(_tokenA != _tokenB, 'PairFactory: duplicate tokens');
     require(_tokenA != address(0) && _tokenB != address(0), 'PairFactory: zero address');

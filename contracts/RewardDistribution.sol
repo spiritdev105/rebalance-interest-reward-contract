@@ -4,7 +4,9 @@ pragma solidity ^0.8.0;
 
 import './interfaces/IERC20.sol';
 import './interfaces/IPairFactory.sol';
+import './interfaces/IController.sol';
 import './interfaces/ILendingPair.sol';
+import './external/Address.sol';
 import './external/Ownable.sol';
 
 // Calling setTotalRewardPerBlock, addPool or setReward, pending rewards will be changed.
@@ -14,13 +16,15 @@ import './external/Ownable.sol';
 
 contract RewardDistribution is Ownable {
 
+  using Address for address;
+
   struct Pool {
     address pair;
     address token;
     bool    isSupply;
     uint    points;             // How many allocation points assigned to this pool.
     uint    lastRewardBlock;    // Last block number that reward distribution occurs.
-    uint    accRewardsPerToken; // Accumulated total rewards
+    uint    accRewardsPerToken; // Accumulated total rewards, multiplied by 1e12
   }
 
   struct PoolPosition {
@@ -29,6 +33,7 @@ contract RewardDistribution is Ownable {
   }
 
   IPairFactory public factory;
+  IController  public controller;
   IERC20  public rewardToken;
   Pool[]  public pools;
   uint    public totalRewardPerBlock;
@@ -50,30 +55,34 @@ contract RewardDistribution is Ownable {
   event RewardRateUpdate(uint value);
 
   constructor(
+    IController  _controller,
     IPairFactory _factory,
     IERC20  _rewardToken,
     uint    _totalRewardPerBlock
   ) {
+    controller = _controller;
     factory = _factory;
     rewardToken = _rewardToken;
     totalRewardPerBlock = _totalRewardPerBlock;
   }
 
-  function distributeReward(address _account, address _token) public {
+  // Lending pair will never call this for feeRecipient
+  function distributeReward(address _account, address _token) external {
     _onlyLendingPair();
     address pair = msg.sender;
     _distributeReward(_account, pair, _token, true);
     _distributeReward(_account, pair, _token, false);
   }
 
-  function snapshotAccount(address _account, address _token, bool _isSupply) public {
+  // Lending pair will never call this for feeRecipient
+  function snapshotAccount(address _account, address _token, bool _isSupply) external {
     _onlyLendingPair();
     address pair = msg.sender;
 
     if (_poolExists(pair, _token, _isSupply)) {
       uint pid = _getPid(pair, _token, _isSupply);
       Pool memory pool = _getPool(pair, _token, _isSupply);
-      rewardSnapshot[pid][_account] = pool.accRewardsPerToken * _stakedAccount(pool, _account) / 1e18;
+      rewardSnapshot[pid][_account] = pool.accRewardsPerToken * _stakedAccount(pool, _account) / 1e12;
     }
   }
 
@@ -83,7 +92,7 @@ contract RewardDistribution is Ownable {
     address _token,
     bool    _isSupply,
     uint    _points
-  ) public onlyOwner {
+  ) external onlyOwner {
 
     require(
       pidByPairToken[_pair][_token][_isSupply].added == false,
@@ -120,7 +129,7 @@ contract RewardDistribution is Ownable {
     address _token,
     bool    _isSupply,
     uint    _points
-  ) public onlyOwner {
+  ) external onlyOwner {
 
     uint pid = pidByPairToken[_pair][_token][_isSupply].pid;
     accruePool(pid);
@@ -132,14 +141,14 @@ contract RewardDistribution is Ownable {
   }
 
   // Pending rewards will be changed. See class comments.
-  function setTotalRewardPerBlock(uint _value) public onlyOwner {
+  function setTotalRewardPerBlock(uint _value) external onlyOwner {
     totalRewardPerBlock = _value;
     emit RewardRateUpdate(_value);
   }
 
   function accruePool(uint _pid) public {
     Pool storage pool = pools[_pid];
-    pool.accRewardsPerToken += _pendingPoolReward(pool);
+    pool.accRewardsPerToken += _pendingRewardPerToken(pool);
     pool.lastRewardBlock = block.number;
   }
 
@@ -163,25 +172,25 @@ contract RewardDistribution is Ownable {
     return pendingSupplyReward(_account, _pair, _token) + pendingBorrowReward(_account, _pair, _token);
   }
 
-  function pendingAccountReward(address _account, address _pair) public view returns(uint) {
+  function pendingAccountReward(address _account, address _pair) external view returns(uint) {
     ILendingPair pair = ILendingPair(_pair);
     return pendingTokenReward(_account, _pair, pair.tokenA()) + pendingTokenReward(_account, _pair, pair.tokenB());
   }
 
-  function supplyBlockReward(address _pair, address _token) public view returns(uint) {
+  function supplyBlockReward(address _pair, address _token) external view returns(uint) {
     return _poolRewardRate(_pair, _token, true);
   }
 
-  function borrowBlockReward(address _pair, address _token) public view returns(uint) {
+  function borrowBlockReward(address _pair, address _token) external view returns(uint) {
     return _poolRewardRate(_pair, _token, false);
   }
 
-  function poolLength() public view returns (uint) {
+  function poolLength() external view returns (uint) {
     return pools.length;
   }
 
   // Allows to migrate rewards to a new staking contract.
-  function migrateRewards(address _recipient, uint _amount) public onlyOwner {
+  function migrateRewards(address _recipient, uint _amount) external onlyOwner {
     rewardToken.transfer(_recipient, _amount);
   }
 
@@ -228,12 +237,12 @@ contract RewardDistribution is Ownable {
       return 0;
     }
 
-    pool.accRewardsPerToken += _pendingPoolReward(pool);
+    pool.accRewardsPerToken += _pendingRewardPerToken(pool);
     uint stakedAccount = _stakedAccount(pool, _account);
-    return pool.accRewardsPerToken * stakedAccount / 1e18 - rewardSnapshot[_pid][_account];
+    return pool.accRewardsPerToken * stakedAccount / 1e12 - rewardSnapshot[_pid][_account];
   }
 
-  function _pendingPoolReward(Pool memory _pool) internal view returns(uint) {
+  function _pendingRewardPerToken(Pool memory _pool) internal view returns(uint) {
     uint totalStaked = _stakedTotal(_pool);
 
     if (_pool.lastRewardBlock == 0 || totalStaked == 0) {
@@ -241,7 +250,7 @@ contract RewardDistribution is Ownable {
     }
 
     uint blocksElapsed = block.number - _pool.lastRewardBlock;
-    return blocksElapsed * _poolRewardRate(_pool.pair, _pool.token, _pool.isSupply) * 1e18 / totalStaked;
+    return blocksElapsed * _poolRewardRate(_pool.pair, _pool.token, _pool.isSupply) * 1e12 / totalStaked;
   }
 
   function _getPool(address _pair, address _token, bool _isSupply) internal view returns(Pool memory) {
@@ -261,10 +270,13 @@ contract RewardDistribution is Ownable {
 
   function _stakedTotal(Pool memory _pool) internal view returns(uint) {
     ILendingPair pair = ILendingPair(_pool.pair);
+    uint feeRecipientBalance = pair.lpToken(_pool.token).balanceOf(_feeRecipient());
 
     if (_pool.isSupply) {
-      return pair.lpToken(_pool.token).totalSupply();
+      // stake of feeRecipient should not be included in the reward pool
+      return pair.lpToken(_pool.token).totalSupply() - feeRecipientBalance;
     } else {
+      // feeRecipient will never have any debt
       return pair.totalDebt(_pool.token);
     }
   }
@@ -272,7 +284,9 @@ contract RewardDistribution is Ownable {
   function _stakedAccount(Pool memory _pool, address _account) internal view returns(uint) {
     ILendingPair pair = ILendingPair(_pool.pair);
 
-    if (_pool.isSupply) {
+    if (_account == _feeRecipient()) {
+      return 0;
+    } else if (_pool.isSupply) {
       return pair.lpToken(_pool.token).balanceOf(_account);
     } else {
       return pair.debtOf(_pool.token, _account);
@@ -281,7 +295,7 @@ contract RewardDistribution is Ownable {
 
   function _onlyLendingPair() internal view {
 
-    if (_isContract(msg.sender)) {
+    if (msg.sender.isContract()) {
       address factoryPair = factory.pairByTokens(ILendingPair(msg.sender).tokenA(), ILendingPair(msg.sender).tokenB());
       require(factoryPair == msg.sender, "RewardDistribution: caller not lending pair");
 
@@ -290,11 +304,7 @@ contract RewardDistribution is Ownable {
     }
   }
 
-  function _isContract(address _address) internal view returns(bool isContract) {
-    uint32 size;
-    assembly {
-      size := extcodesize(_address)
-    }
-    return (size > 0);
+  function _feeRecipient() internal view returns(address) {
+    return controller.feeRecipient();
   }
 }

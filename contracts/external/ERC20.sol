@@ -28,21 +28,29 @@ contract ERC20 is Ownable {
     require(decimals > 0, "decimals");
   }
 
-  function transfer(address _recipient, uint _amount) public returns (bool) {
+  function transfer(address _recipient, uint _amount) external returns (bool) {
     _transfer(msg.sender, _recipient, _amount);
     return true;
   }
 
-  function approve(address _spender, uint _amount) public returns (bool) {
+  function approve(address _spender, uint _amount) external returns (bool) {
     _approve(msg.sender, _spender, _amount);
     return true;
   }
 
-  function transferFrom(address _sender, address _recipient, uint _amount) public returns (bool) {
+  function transferFrom(address _sender, address _recipient, uint _amount) external returns (bool) {
     require(allowance[_sender][msg.sender] >= _amount, "ERC20: insufficient approval");
     _transfer(_sender, _recipient, _amount);
     _approve(_sender, msg.sender, allowance[_sender][msg.sender] - _amount);
     return true;
+  }
+
+  function mint(address _account, uint _amount) external onlyOwner {
+    _mint(_account, _amount);
+  }
+
+  function burn(address _account, uint _amount) external onlyOwner {
+    _burn(_account, _amount);
   }
 
   function _transfer(address _sender, address _recipient, uint _amount) internal {
@@ -53,14 +61,6 @@ contract ERC20 is Ownable {
     balanceOf[_sender] -= _amount;
     balanceOf[_recipient] += _amount;
     emit Transfer(_sender, _recipient, _amount);
-  }
-
-  function mint(address _account, uint _amount) public onlyOwner {
-    _mint(_account, _amount);
-  }
-
-  function burn(address _account, uint _amount) public onlyOwner {
-    _burn(_account, _amount);
   }
 
   function _mint(address _account, uint _amount) internal {
