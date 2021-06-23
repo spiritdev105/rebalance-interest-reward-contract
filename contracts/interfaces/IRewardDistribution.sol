@@ -4,5 +4,4 @@ pragma solidity ^0.8.0;
 
 interface IRewardDistribution {
   function distributeReward(address _account, address _token) external;
-  function snapshotAccount(address _account, address _token, bool isSupply) external;
 }

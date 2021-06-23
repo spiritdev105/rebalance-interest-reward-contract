@@ -74,14 +74,14 @@ contract LendingPair is TransferHelper {
 
   function depositRepay(address _account, address _token, uint _amount) external {
     _validateToken(_token);
-    _accrueAccount(_account);
+    accrueAccount(_account);
 
     _depositRepay(_account, _token, _amount);
     _safeTransferFrom(_token, msg.sender, _amount);
   }
 
   function depositRepayETH(address _account) external payable {
-    _accrueAccount(_account);
+    accrueAccount(_account);
 
     _depositRepay(_account, address(WETH), msg.value);
     _depositWeth();
@@ -89,7 +89,7 @@ contract LendingPair is TransferHelper {
 
   function deposit(address _account, address _token, uint _amount) external {
     _validateToken(_token);
-    _accrueAccount(_account);
+    accrueAccount(_account);
 
     _deposit(_account, _token, _amount);
     _safeTransferFrom(_token, msg.sender, _amount);
@@ -97,14 +97,14 @@ contract LendingPair is TransferHelper {
 
   function withdrawBorrow(address _token, uint _amount) external {
     _validateToken(_token);
-    _accrueAccount(msg.sender);
+    accrueAccount(msg.sender);
 
     _withdrawBorrow(_token, _amount);
     _safeTransfer(IERC20(_token), msg.sender, _amount);
   }
 
   function withdrawBorrowETH(uint _amount) external {
-    _accrueAccount(msg.sender);
+    accrueAccount(msg.sender);
 
     _withdrawBorrow(address(WETH), _amount);
     _wethWithdrawTo(msg.sender, _amount);
@@ -113,7 +113,7 @@ contract LendingPair is TransferHelper {
 
   function withdraw(address _token, uint _amount) external {
     _validateToken(_token);
-    _accrueAccount(msg.sender);
+    accrueAccount(msg.sender);
 
     _withdraw(_token, _amount);
     _safeTransfer(IERC20(_token), msg.sender, _amount);
@@ -121,7 +121,7 @@ contract LendingPair is TransferHelper {
 
   function withdrawAll(address _token) external {
     _validateToken(_token);
-    _accrueAccount(msg.sender);
+    accrueAccount(msg.sender);
 
     uint amount = lpToken[address(_token)].balanceOf(msg.sender);
     _withdraw(_token, amount);
@@ -129,7 +129,7 @@ contract LendingPair is TransferHelper {
   }
 
   function withdrawAllETH() external {
-    _accrueAccount(msg.sender);
+    accrueAccount(msg.sender);
 
     uint amount = lpToken[address(WETH)].balanceOf(msg.sender);
     _withdraw(address(WETH), amount);
@@ -138,7 +138,7 @@ contract LendingPair is TransferHelper {
 
   function borrow(address _token, uint _amount) external {
     _validateToken(_token);
-    _accrueAccount(msg.sender);
+    accrueAccount(msg.sender);
 
     _borrow(_token, _amount);
     _safeTransfer(IERC20(_token), msg.sender, _amount);
@@ -146,7 +146,7 @@ contract LendingPair is TransferHelper {
 
   function repayAll(address _account, address _token) external {
     _validateToken(_token);
-    _accrueAccount(_account);
+    accrueAccount(_account);
 
     uint amount = debtOf[_token][_account];
     _repay(_account, _token, amount);
@@ -154,7 +154,7 @@ contract LendingPair is TransferHelper {
   }
 
   function repayAllETH(address _account) external payable {
-    _accrueAccount(_account);
+    accrueAccount(_account);
 
     uint amount = debtOf[address(WETH)][_account];
     require(msg.value >= amount, "LendingPair: insufficient ETH deposit");
@@ -170,7 +170,7 @@ contract LendingPair is TransferHelper {
 
   function repay(address _account, address _token, uint _amount) external {
     _validateToken(_token);
-    _accrueAccount(_account);
+    accrueAccount(_account);
 
     _repay(_account, _token, _amount);
     _safeTransferFrom(_token, msg.sender, _amount);
@@ -184,9 +184,14 @@ contract LendingPair is TransferHelper {
     }
   }
 
-  function accrueAccount(address _account) external {
-    _accrueAccount(_account);
-    _snapshotAccount(_account);
+  function accrueAccount(address _account) public {
+    _distributeReward(_account);
+    accrue();
+    _accrueAccountInterest(_account);
+
+    if (_account != feeRecipient()) {
+      _accrueAccountInterest(feeRecipient());
+    }
   }
 
   function accountHealth(address _account) public view returns(uint) {
@@ -402,16 +407,6 @@ contract LendingPair is TransferHelper {
     }
   }
 
-  function _accrueAccount(address _account) internal {
-    accrue();
-    _accrueAccountInterest(_account);
-
-    if (_account != feeRecipient()) {
-      _accrueAccountInterest(feeRecipient());
-      _distributeReward(_account);
-    }
-  }
-
   function _accrueAccountDebt(address _token, address _account) internal {
     if (debtOf[_token][_account] > 0) {
       uint newDebt = _pendingBorrowInterest(_token, _account);
@@ -422,7 +417,6 @@ contract LendingPair is TransferHelper {
   function _withdraw(address _token, uint _amount) internal {
 
     lpToken[address(_token)].burn(msg.sender, _amount);
-    _snapshotAccount(msg.sender);
 
     checkAccountHealth(msg.sender);
 
@@ -434,7 +428,6 @@ contract LendingPair is TransferHelper {
     require(lpToken[address(_token)].balanceOf(msg.sender) == 0, "LendingPair: cannot borrow supplied token");
 
     _mintDebt(_token, msg.sender, _amount);
-    _snapshotAccount(msg.sender);
 
     _checkBorrowLimits(_token, msg.sender);
     checkAccountHealth(msg.sender);
@@ -444,8 +437,6 @@ contract LendingPair is TransferHelper {
 
   function _repay(address _account, address _token, uint _amount) internal {
     _burnDebt(_token, _account, _amount);
-    _snapshotAccount(_account);
-
     emit Repay(_account, _token, _amount);
   }
 
@@ -457,24 +448,9 @@ contract LendingPair is TransferHelper {
     require(debtOf[_token][_account] == 0, "LendingPair: cannot deposit borrowed token");
 
     _mintSupply(_token, _account, _amount);
-    _snapshotAccount(_account);
     _checkDepositLimit(_token);
 
     emit Deposit(_account, _token, _amount);
-  }
-
-  function _snapshotAccount(address _account) internal {
-    IRewardDistribution rewardDistribution = controller.rewardDistribution();
-
-    if (
-      address(rewardDistribution) != address(0) &&
-      _account != feeRecipient()
-    ) {
-      rewardDistribution.snapshotAccount(_account, tokenA, true);
-      rewardDistribution.snapshotAccount(_account, tokenA, false);
-      rewardDistribution.snapshotAccount(_account, tokenB, true);
-      rewardDistribution.snapshotAccount(_account, tokenB, false);
-    }
   }
 
   function _accrueInterest(address _token) internal {

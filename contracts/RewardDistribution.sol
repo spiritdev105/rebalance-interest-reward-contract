@@ -74,18 +74,6 @@ contract RewardDistribution is Ownable {
     _distributeReward(_account, pair, _token, false);
   }
 
-  // Lending pair will never call this for feeRecipient
-  function snapshotAccount(address _account, address _token, bool _isSupply) external {
-    _onlyLendingPair();
-    address pair = msg.sender;
-
-    if (_poolExists(pair, _token, _isSupply)) {
-      uint pid = _getPid(pair, _token, _isSupply);
-      Pool memory pool = _getPool(pair, _token, _isSupply);
-      rewardSnapshot[pid][_account] = pool.accRewardsPerToken * _stakedAccount(pool, _account) / 1e12;
-    }
-  }
-
   // Pending rewards will be changed. See class comments.
   function addPool(
     address _pair,
@@ -213,6 +201,9 @@ contract RewardDistribution is Ownable {
 
       accruePool(pid);
       _transferReward(_account, _pendingAccountReward(pid, _account));
+
+      Pool memory pool = _getPool(_pair, _token, _isSupply);
+      rewardSnapshot[pid][_account] = pool.accRewardsPerToken;
     }
   }
 
@@ -231,15 +222,9 @@ contract RewardDistribution is Ownable {
   function _pendingAccountReward(uint _pid, address _account) internal view returns(uint) {
     Pool memory pool = pools[_pid];
 
-    uint stakedTotal = _stakedTotal(pool);
-
-    if (stakedTotal == 0) {
-      return 0;
-    }
-
     pool.accRewardsPerToken += _pendingRewardPerToken(pool);
-    uint stakedAccount = _stakedAccount(pool, _account);
-    return pool.accRewardsPerToken * stakedAccount / 1e12 - rewardSnapshot[_pid][_account];
+    uint rewardsPerTokenDelta = pool.accRewardsPerToken - rewardSnapshot[_pid][_account];
+    return rewardsPerTokenDelta * _stakedAccount(pool, _account) / 1e12;
   }
 
   function _pendingRewardPerToken(Pool memory _pool) internal view returns(uint) {
