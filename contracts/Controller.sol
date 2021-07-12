@@ -24,10 +24,12 @@ contract Controller is Ownable {
   bool public borrowingEnabled;
   uint public liqFeeCallerDefault;
   uint public liqFeeSystemDefault;
+  uint public originFeeDefault;
   uint public minBorrowUSD;
 
   mapping(address => mapping(address => uint)) public depositLimit;
   mapping(address => mapping(address => uint)) public borrowLimit;
+  mapping(address => uint) public originFeeToken;
   mapping(address => uint) public liqFeeCallerToken; // 1e18  = 1%
   mapping(address => uint) public liqFeeSystemToken; // 1e18  = 1%
   mapping(address => uint) public colFactor; // 99e18 = 99%
@@ -45,17 +47,21 @@ contract Controller is Ownable {
   event BorrowingEnabled(bool value);
   event NewLiqParamsToken(address token, uint liqFeeSystem, uint liqFeeCaller);
   event NewLiqParamsDefault(uint liqFeeSystem, uint liqFeeCaller);
+  event NewOriginFeeDefault(uint value);
+  event NewOriginFeeToken(address token, uint value);
 
   constructor(
     address _interestRateModel,
     uint _liqFeeSystemDefault,
-    uint _liqFeeCallerDefault
+    uint _liqFeeCallerDefault,
+    uint _originFeeDefault
   ) {
     _requireContract(_interestRateModel);
 
     interestRateModel = IInterestRateModel(_interestRateModel);
     liqFeeSystemDefault = _liqFeeSystemDefault;
     liqFeeCallerDefault = _liqFeeCallerDefault;
+    originFeeDefault    = _originFeeDefault;
     depositsEnabled = true;
     borrowingEnabled = true;
   }
@@ -120,6 +126,17 @@ contract Controller is Ownable {
     emit BorrowingEnabled(_value);
   }
 
+  function setDefaultOriginFee(uint _value) external onlyOwner {
+    originFeeDefault = _value;
+    emit NewOriginFeeDefault(_value);
+  }
+
+  function setOriginFee(address _token, uint _value) external onlyOwner {
+    _requireContract(_token);
+    originFeeToken[_token] = _value;
+    emit NewOriginFeeToken(_token, _value);
+  }
+
   function setDepositLimit(address _pair, address _token, uint _value) external onlyOwner {
     _requireContract(_pair);
     _requireContract(_token);
@@ -155,6 +172,10 @@ contract Controller is Ownable {
 
   function liqFeesTotal(address _token) external view returns(uint) {
     return liqFeeSystem(_token) + liqFeeCaller(_token);
+  }
+
+  function originFee(address _token) external view returns(uint) {
+    return originFeeToken[_token] > 0 ? originFeeToken[_token] : originFeeDefault;
   }
 
   function tokenPrice(address _token) external view returns(uint) {

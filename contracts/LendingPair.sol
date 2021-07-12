@@ -378,6 +378,14 @@ contract LendingPair is TransferHelper {
     totalDebt[_token] += _amount;
   }
 
+  // Origination fee is earned entirely by the protocol and is not split with the LPs
+  // The goal is to prevent free flash loans
+  function _mintDebtWithOriginFee(address _token, address _account, uint _amount) internal {
+    uint originFee = _originationFee(_token, _amount);
+    _mintSupply(_token, feeRecipient(), originFee);
+    _mintDebt(_token, _account, _amount + originFee);
+  }
+
   function _burnDebt(address _token, address _account, uint _amount) internal {
     debtOf[_token][_account] -= _amount;
     totalDebt[_token] -= _amount;
@@ -427,7 +435,7 @@ contract LendingPair is TransferHelper {
 
     require(lpToken[address(_token)].balanceOf(msg.sender) == 0, "LendingPair: cannot borrow supplied token");
 
-    _mintDebt(_token, msg.sender, _amount);
+    _mintDebtWithOriginFee(_token, msg.sender, _amount);
 
     _checkBorrowLimits(_token, msg.sender);
     checkAccountHealth(msg.sender);
@@ -561,6 +569,10 @@ contract LendingPair is TransferHelper {
     if (borrowLimit > 0) {
       require(totalDebt[_token] <= borrowLimit, "LendingPair: borrow limit reached");
     }
+  }
+
+  function _originationFee(address _token, uint _amount) internal view returns(uint) {
+    return _amount * controller.originFee(_token) / 1e18;
   }
 
   function _systemRate(address _token) internal view returns(uint) {

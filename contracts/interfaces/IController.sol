@@ -18,6 +18,7 @@ interface IController {
   function colFactor(address _token) external view returns(uint);
   function depositLimit(address _lendingPair, address _token) external view returns(uint);
   function borrowLimit(address _lendingPair, address _token) external view returns(uint);
+  function originFee(address _token) external view returns(uint);
   function depositsEnabled() external view returns(bool);
   function borrowingEnabled() external view returns(bool);
   function setFeeRecipient(address _feeRecipient) external;

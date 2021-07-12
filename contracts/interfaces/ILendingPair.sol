@@ -19,7 +19,6 @@ interface ILendingPair {
   function withdraw(address _token, uint _amount) external;
   function borrow(address _token, uint _amount) external;
   function repay(address _token, uint _amount) external;
-  function withdrawRepay(address _token, uint _amount) external;
   function withdrawBorrow(address _token, uint _amount) external;
   function controller() external view returns(IController);
 
