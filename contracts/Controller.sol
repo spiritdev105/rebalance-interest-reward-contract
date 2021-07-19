@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 
-pragma solidity ^0.8.0;
+pragma solidity 0.8.6;
 
 import './interfaces/IInterestRateModel.sol';
 import './interfaces/IRewardDistribution.sol';
@@ -49,19 +49,23 @@ contract Controller is Ownable {
   event NewLiqParamsDefault(uint liqFeeSystem, uint liqFeeCaller);
   event NewOriginFeeDefault(uint value);
   event NewOriginFeeToken(address token, uint value);
+  event NewMinBorrowUSD(uint value);
 
   constructor(
     address _interestRateModel,
     uint _liqFeeSystemDefault,
     uint _liqFeeCallerDefault,
-    uint _originFeeDefault
+    uint _originFeeDefault,
+    uint _minBorrowUSD
   ) {
     _requireContract(_interestRateModel);
+    require(_liqFeeSystemDefault + _liqFeeCallerDefault <= MAX_LIQ_FEES, "Controller: fees too high");
 
     interestRateModel = IInterestRateModel(_interestRateModel);
     liqFeeSystemDefault = _liqFeeSystemDefault;
     liqFeeCallerDefault = _liqFeeCallerDefault;
     originFeeDefault    = _originFeeDefault;
+    minBorrowUSD        = _minBorrowUSD;
     depositsEnabled = true;
     borrowingEnabled = true;
   }
@@ -153,6 +157,7 @@ contract Controller is Ownable {
 
   function setMinBorrowUSD(uint _value) external onlyOwner {
     minBorrowUSD = _value;
+    emit NewMinBorrowUSD(_value);
   }
 
   function setColFactor(address _token, uint _value) external onlyOwner {

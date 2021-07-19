@@ -6,7 +6,7 @@
 import './interfaces/ILinkOracle.sol';
 import './external/Ownable.sol';
 
-pragma solidity ^0.8.0;
+pragma solidity 0.8.6;
 
 contract LinkPriceOracle is Ownable {
 
@@ -38,7 +38,10 @@ contract LinkPriceOracle is Ownable {
   function tokenPrice(address _token) external view returns(uint) {
 
     if (address(linkOracles[_token]) != address(0)) {
-      return linkOracles[_token].latestAnswer() * 1e10;
+      uint latestAnswer = linkOracles[_token].latestAnswer();
+      require(latestAnswer > 1, "LinkPriceOracle: invalid oracle value");
+
+      return latestAnswer * 1e10;
 
     } else if (tokenPrices[_token] != 0) {
       return tokenPrices[_token];

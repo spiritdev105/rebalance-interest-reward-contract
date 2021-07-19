@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 
-pragma solidity ^0.8.0;
+pragma solidity 0.8.6;
 
 import './interfaces/IERC20.sol';
 import './interfaces/IUniswapV3Pool.sol';
@@ -22,7 +22,7 @@ contract UniswapV3Oracle is Ownable {
   }
 
   uint32 public twapPeriod;
-  uint   public minObservations;
+  uint16 public minObservations;
 
   IUniswapPriceConverter public uniPriceConverter;
 
@@ -30,11 +30,14 @@ contract UniswapV3Oracle is Ownable {
 
   event PoolAdded(address indexed token);
   event PoolRemoved(address indexed token);
+  event NewTwapPeriod(uint32 value);
+  event NewMinObservations(uint16 value);
+  event NewUniPriceConverter(IUniswapPriceConverter value);
 
   constructor(
     IUniswapPriceConverter _uniPriceConverter,
     uint32       _twapPeriod,
-    uint         _minObservations
+    uint16       _minObservations
   ) {
     uniPriceConverter = _uniPriceConverter;
     twapPeriod        = _twapPeriod;
@@ -64,14 +67,17 @@ contract UniswapV3Oracle is Ownable {
 
   function setUniPriceConverter(IUniswapPriceConverter _value) external onlyOwner {
     uniPriceConverter = _value;
+    emit NewUniPriceConverter(_value);
   }
 
   function setTwapPeriod(uint32 _value) external onlyOwner {
     twapPeriod = _value;
+    emit NewTwapPeriod(_value);
   }
 
-  function setMinObservations(uint _value) external onlyOwner {
+  function setMinObservations(uint16 _value) external onlyOwner {
     minObservations = _value;
+    emit NewMinObservations(_value);
   }
 
   function tokenPrice(address _token) external view returns(uint) {
@@ -91,14 +97,16 @@ contract UniswapV3Oracle is Ownable {
   }
 
   function ethPrice() public view returns(uint) {
-    return wethOracle.latestAnswer() * 1e10;
+    uint latestAnswer = wethOracle.latestAnswer();
+    require(latestAnswer > 1, "LinkPriceOracle: invalid oracle value");
+    return latestAnswer * 1e10;
   }
 
   function isPoolValid(address _token, address _pairToken, uint24 _poolFee) public view returns(bool) {
     address poolAddress = uniFactory.getPool(_token, _pairToken, _poolFee);
     if (poolAddress == address(0)) { return false; }
 
-    (, , , , uint observationSlots , ,) = IUniswapV3Pool(poolAddress).slot0();
+    (, , , , uint16 observationSlots, ,) = IUniswapV3Pool(poolAddress).slot0();
     return observationSlots >= minObservations;
   }
 

@@ -3,7 +3,7 @@
 // Copyright (c) 2021 0xdev0 - All rights reserved
 // https://twitter.com/0xdev0
 
-pragma solidity ^0.8.0;
+pragma solidity 0.8.6;
 
 import './interfaces/IERC20.sol';
 import './interfaces/ILendingPair.sol';
@@ -40,8 +40,8 @@ contract LPTokenMaster is Ownable {
   }
 
   function transferFrom(address _sender, address _recipient, uint _amount) external returns (bool) {
-    _transfer(_sender, _recipient, _amount);
     _approve(_sender, msg.sender, allowance[_sender][msg.sender] - _amount);
+    _transfer(_sender, _recipient, _amount);
     return true;
   }
 

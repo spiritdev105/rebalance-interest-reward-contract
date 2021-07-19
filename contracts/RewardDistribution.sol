@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 
-pragma solidity ^0.8.0;
+pragma solidity 0.8.6;
 
 import './interfaces/IERC20.sol';
 import './interfaces/IPairFactory.sol';
@@ -32,9 +32,9 @@ contract RewardDistribution is Ownable {
     bool added; // To prevent duplicates.
   }
 
-  IPairFactory public factory;
-  IController  public controller;
-  IERC20  public rewardToken;
+  IPairFactory public immutable factory;
+  IController  public immutable controller;
+  IERC20  public immutable rewardToken;
   Pool[]  public pools;
   uint    public totalRewardPerBlock;
   uint    public totalPoints;
@@ -103,12 +103,14 @@ contract RewardDistribution is Ownable {
       accRewardsPerToken: 0
     }));
 
+    uint pid = pools.length - 1;
+
     pidByPairToken[_pair][_token][_isSupply] = PoolPosition({
-      pid: pools.length - 1,
+      pid: pid,
       added: true
     });
 
-    emit PoolUpdate(pools.length, _pair, _token, _isSupply, _points);
+    emit PoolUpdate(pid, _pair, _token, _isSupply, _points);
   }
 
   // Pending rewards will be changed. See class comments.
@@ -119,7 +121,7 @@ contract RewardDistribution is Ownable {
     uint    _points
   ) external onlyOwner {
 
-    uint pid = pidByPairToken[_pair][_token][_isSupply].pid;
+    uint pid = _getPid(_pair, _token, _isSupply);
     accruePool(pid);
 
     totalPoints = totalPoints - pools[pid].points + _points;
@@ -246,7 +248,7 @@ contract RewardDistribution is Ownable {
     PoolPosition memory poolPosition = pidByPairToken[_pair][_token][_isSupply];
     require(poolPosition.added, "RewardDistribution: invalid pool");
 
-    return pidByPairToken[_pair][_token][_isSupply].pid;
+    return poolPosition.pid;
   }
 
   function _poolExists(address _pair, address _token, bool _isSupply) internal view returns(bool) {

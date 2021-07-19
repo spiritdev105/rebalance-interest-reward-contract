@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 
-pragma solidity ^0.8.0;
+pragma solidity 0.8.6;
 
 import './Ownable.sol';
 
@@ -14,7 +14,7 @@ contract ERC20 is Ownable {
 
   string public name;
   string public symbol;
-  uint8 public decimals;
+  uint8 public immutable decimals;
   uint public totalSupply;
 
   constructor(
@@ -25,7 +25,7 @@ contract ERC20 is Ownable {
     name = _name;
     symbol = _symbol;
     decimals = _decimals;
-    require(decimals > 0, "decimals");
+    require(_decimals > 0, "decimals");
   }
 
   function transfer(address _recipient, uint _amount) external returns (bool) {

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 
-pragma solidity ^0.8.0;
+pragma solidity 0.8.6;
 
 interface IUniswapPair {
   function swap(uint amount0Out, uint amount1Out, address to, bytes calldata data) external;

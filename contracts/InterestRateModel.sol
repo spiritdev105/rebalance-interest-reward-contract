@@ -3,7 +3,7 @@
 // Copyright (c) 2021 0xdev0 - All rights reserved
 // https://twitter.com/0xdev0
 
-pragma solidity ^0.8.0;
+pragma solidity 0.8.6;
 
 import './interfaces/ILendingPair.sol';
 import './interfaces/IERC20.sol';
@@ -30,11 +30,11 @@ contract InterestRateModel {
 
     if (supply == 0 || debt == 0) { return MIN_RATE; }
 
-    uint utilization = Math.min(debt * 100e18 / supply, 100e18);
+    uint utilization = (debt * 100e18 / supply) * 100e18 / TARGET_UTILIZATION;
 
-    if (utilization < TARGET_UTILIZATION) {
+    if (utilization < 100e18) {
       uint rate = LOW_RATE * utilization / 100e18;
-      return (rate < MIN_RATE) ? MIN_RATE : rate;
+      return Math.max(rate, MIN_RATE);
     } else {
       utilization = 100e18 * ( debt - (supply * TARGET_UTILIZATION / 100e18) ) / (supply * (100e18 - TARGET_UTILIZATION) / 100e18);
       utilization = Math.min(utilization, 100e18);

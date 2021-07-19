@@ -1,29 +1,35 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 
-// Copyright (c) 2021 0xdev0 - All rights reserved
-// https://twitter.com/0xdev0
-
-pragma solidity ^0.8.0;
+pragma solidity 0.8.6;
 
 import './interfaces/IERC20.sol';
 import './interfaces/IWETH.sol';
+import './external/SafeERC20.sol';
 
 contract TransferHelper {
 
+  using SafeERC20 for IERC20;
+
   // Mainnet
-  IWETH internal constant WETH = IWETH(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
+  // IWETH internal constant WETH = IWETH(0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2);
 
   // Kovan
-  // IWETH internal constant WETH = IWETH(0xd0A1E359811322d97991E03f863a0C30C2cF029C);
+  IWETH internal constant WETH = IWETH(0xd0A1E359811322d97991E03f863a0C30C2cF029C);
 
   function _safeTransferFrom(address _token, address _sender, uint _amount) internal virtual {
-    bool success = IERC20(_token).transferFrom(_sender, address(this), _amount);
-    require(success, "TransferHelper: transfer failed");
     require(_amount > 0, "TransferHelper: amount must be > 0");
+    IERC20(_token).safeTransferFrom(_sender, address(this), _amount);
+  }
+
+  function _safeTransfer(address _token, address _recipient, uint _amount) internal virtual {
+    require(_amount > 0, "TransferHelper: amount must be > 0");
+    IERC20(_token).safeTransfer(_recipient, _amount);
   }
 
   function _wethWithdrawTo(address _to, uint _amount) internal virtual {
     require(_amount > 0, "TransferHelper: amount must be > 0");
+    require(_to != address(0), "TransferHelper: invalid recipient");
+
     WETH.withdraw(_amount);
     (bool success, ) = _to.call { value: _amount }(new bytes(0));
     require(success, 'TransferHelper: ETH transfer failed');

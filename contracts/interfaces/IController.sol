@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 
-pragma solidity ^0.8.0;
+pragma solidity 0.8.6;
 
 import './IInterestRateModel.sol';
 import './IRewardDistribution.sol';
@@ -11,7 +11,6 @@ interface IController {
   function feeRecipient() external view returns(address);
   function LIQ_MIN_HEALTH() external view returns(uint);
   function minBorrowUSD() external view returns(uint);
-  function liqFeePool() external view returns(uint);
   function liqFeeSystem(address _token) external view returns(uint);
   function liqFeeCaller(address _token) external view returns(uint);
   function liqFeesTotal(address _token) external view returns(uint);

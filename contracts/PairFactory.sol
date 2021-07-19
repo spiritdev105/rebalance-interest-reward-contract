@@ -3,18 +3,17 @@
 // Copyright (c) 2021 0xdev0 - All rights reserved
 // https://twitter.com/0xdev0
 
-pragma solidity ^0.8.0;
+pragma solidity 0.8.6;
 
 import './interfaces/IController.sol';
 import './external/Ownable.sol';
 import './external/Address.sol';
 import './external/Clones.sol';
 import './LendingPair.sol';
-import './TransferHelper.sol';
 
-contract PairFactory is Ownable, TransferHelper {
+contract PairFactory is Ownable {
 
-  uint MAX_INT = 2**256 - 1;
+  uint private constant MAX_INT = 2**256 - 1;
 
   using Address for address;
   using Clones for address;

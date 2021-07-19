@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 
-pragma solidity ^0.8.0;
+pragma solidity 0.8.6;
 
 import './IERC20.sol';
 import './IController.sol';
@@ -15,6 +15,8 @@ interface ILendingPair {
   function tokenB() external view returns(address);
   function lpToken(address _token) external view returns(IERC20);
   function debtOf(address _account, address _token) external view returns(uint);
+  function pendingDebtTotal(address _token) external view returns(uint);
+  function pendingSupplyTotal(address _token) external view returns(uint);
   function deposit(address _token, uint _amount) external;
   function withdraw(address _token, uint _amount) external;
   function borrow(address _token, uint _amount) external;
