@@ -9,36 +9,88 @@ import './interfaces/ILendingPair.sol';
 import './interfaces/IERC20.sol';
 
 import './external/Math.sol';
+import './external/Ownable.sol';
 
-contract InterestRateModel {
+contract InterestRateModel is Ownable {
+
+  // InterestRateModel can be re-deployed later
+  uint private constant BLOCK_TIME = 132e17; // 13.2 seconds
 
   // Per block
-  uint public constant MIN_RATE  = 0;
-  uint public constant LOW_RATE  = 8371385083713;   // 20%    / year = 20e18   / 365 / 86400 * 13.2 (block time)
-  uint public constant HIGH_RATE = 418569254185692; // 1,000% / year = 1000e18 / 365 / 86400 * 13.2 (block time)
+  uint public minRate;
+  uint public lowRate;
+  uint public highRate;
+  uint public targetUtilization; // 80e18 = 80%
+  uint public systemRateDefault; // 50e18 - share of fees earned by the system
 
-  uint public constant TARGET_UTILIZATION = 80e18; // 80%
-  uint public constant SYSTEM_RATE        = 50e18; // share of fees earned by the system
+  event NewMinRate(uint value);
+  event NewLowRate(uint value);
+  event NewHighRate(uint value);
+  event NewTargetUtilization(uint value);
+  event NewSystemRateDefault(uint value);
+
+  constructor(
+    uint _minRate,
+    uint _lowRate,
+    uint _highRate,
+    uint _targetUtilization,
+    uint _systemRateDefault
+  ) {
+    minRate           = _timeRateToBlockRate(_minRate);
+    lowRate           = _timeRateToBlockRate(_lowRate);
+    highRate          = _timeRateToBlockRate(_highRate);
+    targetUtilization = _targetUtilization;
+    systemRateDefault = _systemRateDefault;
+  }
+
+  function setMinRate(uint _value) external onlyOwner {
+    require(_value < lowRate, "InterestRateModel: _value < lowRate");
+    minRate = _timeRateToBlockRate(_value);
+    emit NewMinRate(_value);
+  }
+
+  function setLowRate(uint _value) external onlyOwner {
+    require(_value < highRate, "InterestRateModel: _value < lowRate");
+    lowRate = _timeRateToBlockRate(_value);
+    emit NewLowRate(_value);
+  }
+
+  function setHighRate(uint _value) external onlyOwner {
+    highRate = _timeRateToBlockRate(_value);
+    emit NewHighRate(_value);
+  }
+
+  function setTargetUtilization(uint _value) external onlyOwner {
+    require(_value < 99e18, "InterestRateModel: _value < 100e18");
+    targetUtilization = _value;
+    emit NewTargetUtilization(_value);
+  }
+
+  function setSystemRate(uint _value) external onlyOwner {
+    require(_value < 100e18, "InterestRateModel: _value < 100e18");
+    systemRateDefault = _value;
+    emit NewSystemRateDefault(_value);
+  }
 
   function supplyRatePerBlock(ILendingPair _pair, address _token) external view returns(uint) {
-    return borrowRatePerBlock(_pair, _token) * (100e18 - SYSTEM_RATE) / 100e18;
+    return borrowRatePerBlock(_pair, _token) * (100e18 - systemRateDefault) / 100e18;
   }
 
   function borrowRatePerBlock(ILendingPair _pair, address _token) public view returns(uint) {
     uint debt = _pair.totalDebt(_token);
     uint supply = IERC20(_pair.lpToken(_token)).totalSupply();
 
-    if (supply == 0 || debt == 0) { return MIN_RATE; }
+    if (supply == 0 || debt == 0) { return minRate; }
 
-    uint utilization = (debt * 100e18 / supply) * 100e18 / TARGET_UTILIZATION;
+    uint utilization = (debt * 100e18 / supply) * 100e18 / targetUtilization;
 
     if (utilization < 100e18) {
-      uint rate = LOW_RATE * utilization / 100e18;
-      return Math.max(rate, MIN_RATE);
+      uint rate = lowRate * utilization / 100e18;
+      return Math.max(rate, minRate);
     } else {
-      utilization = 100e18 * ( debt - (supply * TARGET_UTILIZATION / 100e18) ) / (supply * (100e18 - TARGET_UTILIZATION) / 100e18);
+      utilization = 100e18 * ( debt - (supply * targetUtilization / 100e18) ) / (supply * (100e18 - targetUtilization) / 100e18);
       utilization = Math.min(utilization, 100e18);
-      return LOW_RATE + (HIGH_RATE - LOW_RATE) * utilization / 100e18;
+      return lowRate + (highRate - lowRate) * utilization / 100e18;
     }
   }
 
@@ -52,7 +104,12 @@ contract InterestRateModel {
   }
 
   // InterestRateModel can later be replaced for more granular fees per _lendingPair
-  function systemRate(ILendingPair _pair, address _token) external pure returns(uint) {
-    return SYSTEM_RATE;
+  function systemRate(ILendingPair _pair, address _token) external view returns(uint) {
+    return systemRateDefault;
+  }
+
+  // _uint is set as 1e18 = 1% (annual) and converted to the block rate
+  function _timeRateToBlockRate(uint _uint) private view returns(uint) {
+    return _uint / 365 / 86400 * BLOCK_TIME / 1e18;
   }
 }

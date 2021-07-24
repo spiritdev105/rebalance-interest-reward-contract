@@ -136,6 +136,13 @@ contract RewardDistribution is Ownable {
     emit RewardRateUpdate(_value);
   }
 
+  function accrueAllPools() public {
+      uint length = pools.length;
+      for (uint pid = 0; pid < length; ++pid) {
+        accruePool(pid);
+      }
+  }
+
   function accruePool(uint _pid) public {
     Pool storage pool = pools[_pid];
     pool.accRewardsPerToken += _pendingRewardPerToken(pool);

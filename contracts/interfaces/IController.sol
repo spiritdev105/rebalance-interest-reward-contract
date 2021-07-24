@@ -23,4 +23,6 @@ interface IController {
   function setFeeRecipient(address _feeRecipient) external;
   function tokenPrice(address _token) external view returns(uint);
   function tokenSupported(address _token) external view returns(bool);
+  function setRewardDistribution(address _value) external;
+  function setInterestRateModel(address _value) external;
 }

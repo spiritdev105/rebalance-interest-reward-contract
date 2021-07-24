@@ -12,10 +12,8 @@ import './interfaces/IController.sol';
 import './interfaces/IRewardDistribution.sol';
 
 import './external/Math.sol';
-import './external/Ownable.sol';
 import './external/Address.sol';
 import './external/Clones.sol';
-import './external/ERC20.sol';
 import './external/ReentrancyGuard.sol';
 
 import './TransferHelper.sol';
@@ -216,7 +214,6 @@ contract LendingPair is TransferHelper, ReentrancyGuard {
     // Check account is underwater after interest
 
     accrueAccount(_account);
-    _accrueAccountInterest(feeRecipient());
     uint health = accountHealth(_account);
     require(health < controller.LIQ_MIN_HEALTH(), "LendingPair: account health < LIQ_MIN_HEALTH");
 

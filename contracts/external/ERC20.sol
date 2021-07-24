@@ -2,9 +2,7 @@
 
 pragma solidity 0.8.6;
 
-import './Ownable.sol';
-
-contract ERC20 is Ownable {
+contract ERC20 {
 
   event Transfer(address indexed from, address indexed to, uint value);
   event Approval(address indexed owner, address indexed spender, uint value);
@@ -43,14 +41,6 @@ contract ERC20 is Ownable {
     _transfer(_sender, _recipient, _amount);
     _approve(_sender, msg.sender, allowance[_sender][msg.sender] - _amount);
     return true;
-  }
-
-  function mint(address _account, uint _amount) external onlyOwner {
-    _mint(_account, _amount);
-  }
-
-  function burn(address _account, uint _amount) external onlyOwner {
-    _burn(_account, _amount);
   }
 
   function _transfer(address _sender, address _recipient, uint _amount) internal {
