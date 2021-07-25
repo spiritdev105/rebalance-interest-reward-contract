@@ -103,7 +103,7 @@ contract FeeConverter is Ownable {
     uint numPools = ((_path.length - 20) / 23);
 
     // Validate only middle tokens. Skip the first and last token.
-    for (uint8 i; i < numPools - 1; i++) {
+    for (uint8 i = 1; i < numPools; i++) {
       _validateToken(_path, i);
     }
 
