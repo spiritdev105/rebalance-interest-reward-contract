@@ -6,20 +6,24 @@
 pragma solidity 0.8.6;
 
 import './interfaces/IERC20.sol';
-import './interfaces/IUniswapRouter.sol';
+import './interfaces/ISwapRouter.sol';
 import './interfaces/ILendingPair.sol';
 import './interfaces/IController.sol';
 
 import './external/Ownable.sol';
+import './external/BytesLib.sol';
 
 contract FeeConverter is Ownable {
+
+  using BytesLib for bytes;
+
 
   uint private constant MAX_INT = 2**256 - 1;
 
   // Only large liquid tokens: ETH, DAI, USDC, WBTC, etc
   mapping (address => bool) public permittedTokens;
 
-  IUniswapRouter public uniswapRouter;
+  ISwapRouter public immutable uniswapRouter;
   IERC20         public wildToken;
   IController    public controller;
   address        public stakingPool;
@@ -28,7 +32,7 @@ contract FeeConverter is Ownable {
   event FeeDistribution(uint amount);
 
   constructor(
-    IUniswapRouter _uniswapRouter,
+    ISwapRouter _uniswapRouter,
     IController    _controller,
     IERC20         _wildToken,
     address        _stakingPool,
@@ -44,7 +48,7 @@ contract FeeConverter is Ownable {
   function convert(
     address          _incentiveRecipient,
     ILendingPair     _pair,
-    address[] memory _path,
+    bytes memory     _path,
     uint             _supplyTokenAmount
   ) external {
 
@@ -52,15 +56,19 @@ contract FeeConverter is Ownable {
     require(_pair.controller() == controller, "FeeConverter: invalid pair");
     require(_supplyTokenAmount > 0, "FeeConverter: nothing to convert");
 
-    _pair.withdraw(_path[0], _supplyTokenAmount);
-    IERC20(_path[0]).approve(address(uniswapRouter), MAX_INT);
+    address supplyToken = _path.toAddress(0);
 
-    uniswapRouter.swapExactTokensForTokens(
-      _supplyTokenAmount,
-      0,
-      _path,
-      address(this),
-      block.timestamp + 1000
+    _pair.withdraw(supplyToken, _supplyTokenAmount);
+    IERC20(supplyToken).approve(address(uniswapRouter), MAX_INT);
+
+    uniswapRouter.exactInput(
+      ISwapRouter.ExactInputParams(
+        _path,
+        address(this),
+        block.timestamp + 1000,
+        _supplyTokenAmount,
+        0
+      )
     );
 
     uint wildBalance = wildToken.balanceOf(address(this));
@@ -87,14 +95,23 @@ contract FeeConverter is Ownable {
     permittedTokens[_token] = _value;
   }
 
-  function _validatePath(address[] memory _path) internal view {
-    require(_path[_path.length - 1] == address(wildToken), "FeeConverter: must convert into WILD");
+  function _validatePath(bytes memory _path) internal view {
+
+    // check last token
+    require(_path.toAddress(_path.length-20) == address(wildToken), "FeeConverter: must convert into WILD");
+
+    uint numPools = ((_path.length - 20) / 23);
 
     // Validate only middle tokens. Skip the first and last token.
-    for (uint i; i < _path.length - 1; i++) {
-      if (i > 0) {
-        require(permittedTokens[_path[i]], "FeeConverter: invalid path");
-      }
+    for (uint8 i; i < numPools - 1; i++) {
+      _validateToken(_path, i);
     }
+
   }
+
+  function _validateToken(bytes memory _path, uint8 position) internal view {
+    address token = _path.slice(23*position, _path.length - 23*position).toAddress(0);
+    require(permittedTokens[token], "FeeConverter: invalid path");
+  }
+
 }
