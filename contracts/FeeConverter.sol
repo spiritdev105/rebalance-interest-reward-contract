@@ -104,14 +104,9 @@ contract FeeConverter is Ownable {
 
     // Validate only middle tokens. Skip the first and last token.
     for (uint8 i = 1; i < numPools; i++) {
-      _validateToken(_path, i);
+      address token = _path.toAddress(23*i);
+      require(permittedTokens[token], "FeeConverter: invalid path");
     }
-
-  }
-
-  function _validateToken(bytes memory _path, uint8 position) internal view {
-    address token = _path.slice(23*position, _path.length - 23*position).toAddress(0);
-    require(permittedTokens[token], "FeeConverter: invalid path");
   }
 
 }
